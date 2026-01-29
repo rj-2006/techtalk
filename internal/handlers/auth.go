@@ -37,7 +37,6 @@ func Register(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to hash password"})
 		return
 	}
-
 	user := models.User{
 		Username: req.Username,
 		Email:    req.Email,
