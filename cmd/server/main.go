@@ -38,7 +38,10 @@ func main() {
 	protected := r.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
 	{
-		// more to come
+		protected.POST("/threads", handlers.CreateThread)
+		protected.GET("/threads", handlers.GetThread)
+		protected.GET("/threads/:id", handlers.GetThread)
+		protected.POST("/threads/:id/posts", handlers.CreatePost)
 	}
 
 	port := os.Getenv("PORT")
