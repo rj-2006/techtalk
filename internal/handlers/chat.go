@@ -109,7 +109,7 @@ func HandleChatWebsocket(c *gin.Context) {
 	client := &ws.Client{
 		Hub:      ChatHub,
 		Conn:     conn,
-		Send:     make(chan []byte),
+		Send:     make(chan []byte, 256),
 		RoomID:   roomID,
 		UserID:   userID,
 		Username: username,

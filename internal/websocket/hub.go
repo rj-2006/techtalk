@@ -68,7 +68,7 @@ func (h *Hub) Run() {
 		case broadcastMsg := <-h.Broadcast:
 			h.mu.RLock()
 			clients := h.Rooms[broadcastMsg.RoomID]
-			h.mu.Unlock()
+			h.mu.RUnlock()
 
 			for client := range clients {
 				select {
@@ -108,7 +108,7 @@ func (h *Hub) broadcastToRoom(roomID string, msg Message) {
 	data, _ := json.Marshal(msg)
 	h.mu.RLock()
 	clients := h.Rooms[roomID]
-	h.mu.Unlock()
+	h.mu.RUnlock()
 
 	for client := range clients {
 		select {

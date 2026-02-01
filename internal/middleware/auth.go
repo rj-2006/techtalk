@@ -2,13 +2,14 @@ package middleware
 
 import (
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 )
 
-var JWTSecret = []byte("")
+var JWTSecret = []byte(os.Getenv("JWT_SECRET"))
 
 type Claims struct {
 	UserID   uint   `json:"user_id"`
@@ -22,19 +23,18 @@ func AuthMiddleware() gin.HandlerFunc {
 		if authHeader == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "Authorization Header Required"})
 			c.Abort()
-
 			return
 		}
-		tokenString := strings.TrimPrefix(authHeader, "Bearer")
+
+		tokenString := strings.TrimPrefix(authHeader, "Bearer ")
 
 		token, err := jwt.ParseWithClaims(tokenString, &Claims{}, func(token *jwt.Token) (interface{}, error) {
 			return JWTSecret, nil
 		})
 
 		if err != nil || !token.Valid {
-			c.JSON(http.StatusUnauthorized, gin.H{"error": " Invalid Token"})
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "Invalid Token"})
 			c.Abort()
-
 			return
 		}
 
