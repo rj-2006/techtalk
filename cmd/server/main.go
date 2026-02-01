@@ -9,6 +9,7 @@ import (
 	"github.com/rj-2006/techtalk/internal/database"
 	"github.com/rj-2006/techtalk/internal/handlers"
 	"github.com/rj-2006/techtalk/internal/middleware"
+	"github.com/rj-2006/techtalk/internal/websocket"
 )
 
 func main() {
@@ -35,6 +36,9 @@ func main() {
 	r.POST("/api/register", handlers.Register)
 	r.POST("/api/login", handlers.Login)
 
+	handlers.ChatHub = websocket.NewHub()
+	go handlers.ChatHub.Run()
+
 	protected := r.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
 	{
@@ -42,6 +46,10 @@ func main() {
 		protected.GET("/threads", handlers.GetThread)
 		protected.GET("/threads/:id", handlers.GetThread)
 		protected.POST("/threads/:id/posts", handlers.CreatePost)
+		protected.POST("/chatrooms", handlers.CreateChatroom)
+		protected.GET("/chatrooms", handlers.GetChatrooms)
+		protected.GET("/chatrooms/:id/history", handlers.GetChatHistory)
+		protected.GET("/chatrooms/:id/ws", handlers.HandleChatWebsocket)
 	}
 
 	port := os.Getenv("PORT")
