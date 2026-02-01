@@ -1,0 +1,174 @@
+package handlers
+
+import (
+	"encoding/json"
+	"log"
+	"net/http"
+	"strconv"
+	"time"
+
+	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
+	"github.com/rj-2006/techtalk/internal/database"
+	"github.com/rj-2006/techtalk/internal/models"
+	ws "github.com/rj-2006/techtalk/internal/websocket"
+)
+
+var upgrader = websocket.Upgrader{
+	ReadBufferSize:  1024,
+	WriteBufferSize: 1024,
+	CheckOrigin: func(r *http.Request) bool {
+		return true
+	},
+}
+
+var ChatHub *ws.Hub
+
+func CreateChatroom(c *gin.Context) {
+	var req struct {
+		Name        string `json:"name" binding:"required,min=3,max=100"`
+		Description string `json:"description"`
+	}
+
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+		return
+	}
+
+	userID := c.GetUint("user_id")
+
+	chatroom := models.Chatroom{
+		Name:        req.Name,
+		Description: req.Description,
+		CreatedBy:   userID,
+	}
+
+	if err := database.DB.Create(&chatroom).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create chatroom."})
+		return
+	}
+
+	c.JSON(http.StatusCreated, chatroom)
+}
+
+func GetChatrooms(c *gin.Context) {
+	var chatrooms []models.Chatroom
+
+	if err := database.DB.Order("created_at DESC").Find(&chatrooms).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch chatrooms."})
+		return
+	}
+
+	type ChatroomWithCount struct {
+		models.Chatroom
+		ActiveUsers int `json:"active_users"`
+	}
+
+	result := make([]ChatroomWithCount, len(chatrooms))
+	for i, room := range chatrooms {
+		result[i] = ChatroomWithCount{
+			Chatroom:    room,
+			ActiveUsers: ChatHub.GetRoomClients(strconv.Itoa(int(room.ID))),
+		}
+	}
+
+	c.JSON(http.StatusOK, result)
+}
+
+func GetChatHistory(c *gin.Context) {
+	roomID, err := strconv.Atoi(c.Param("id"))
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid RoomID"})
+		return
+	}
+
+	var messages []models.ChatMessage
+
+	if err := database.DB.Where("chatroom_id = ?", roomID).Preload("User").Order(
+		"created_at ASC").Limit(100).Find(&messages).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "Failed to fetch chat messages."})
+		return
+	}
+
+	c.JSON(http.StatusOK, messages)
+}
+
+func HandleChatWebsocket(c *gin.Context) {
+	roomID := c.Param("id")
+
+	userID := c.GetUint("user_id")
+	username := c.GetString("username")
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Printf("Websocket upgrade failed: %v", err)
+		return
+	}
+
+	client := &ws.Client{
+		Hub:      ChatHub,
+		Conn:     conn,
+		Send:     make(chan []byte),
+		RoomID:   roomID,
+		UserID:   userID,
+		Username: username,
+	}
+
+	client.Hub.Register <- client
+
+	go client.WritePump()
+	go handleChatMessages(client)
+}
+
+func handleChatMessages(client *ws.Client) {
+	defer func() {
+		client.Hub.Unregister <- client
+		client.Conn.Close()
+	}()
+
+	client.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+	client.Conn.SetReadLimit(512 * 1024)
+	client.Conn.SetPongHandler(func(string) error {
+		client.Conn.SetReadDeadline(time.Now().Add(60 * time.Second))
+		return nil
+	})
+
+	for {
+		_, message, err := client.Conn.ReadMessage()
+
+		if err != nil {
+			break
+		}
+
+		var msg ws.Message
+		if err := json.Unmarshal(message, &msg); err != nil {
+			log.Printf("Invalid message format: %v", err)
+			continue
+		}
+
+		msg.UserID = client.UserID
+		msg.Username = client.Username
+		msg.Timestamp = time.Now().Unix()
+
+		switch msg.Type {
+		case ws.MessageTypeChat:
+			roomID, _ := strconv.Atoi(client.RoomID)
+			chatMessage := models.ChatMessage{
+				ChatroomID: uint(roomID),
+				UserID:     client.UserID,
+				Content:    msg.Content,
+			}
+
+			if err := database.DB.Create(&chatMessage).Error; err != nil {
+				log.Printf("Failed to save chat message: %v", err)
+			}
+
+			data, _ := json.Marshal(msg)
+			client.Hub.Broadcast <- &ws.BroadcastMessage{
+				RoomID:  client.RoomID,
+				Message: data,
+			}
+		}
+	}
+}
