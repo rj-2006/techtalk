@@ -43,7 +43,7 @@ func main() {
 	protected.Use(middleware.AuthMiddleware())
 	{
 		protected.POST("/threads", handlers.CreateThread)
-		protected.GET("/threads", handlers.GetThread)
+		protected.GET("/threads", handlers.GetThreads)
 		protected.GET("/threads/:id", handlers.GetThread)
 		protected.POST("/threads/:id/posts", handlers.CreatePost)
 		protected.POST("/chatrooms", handlers.CreateChatroom)
