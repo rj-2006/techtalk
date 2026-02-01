@@ -53,6 +53,17 @@ func GetThread(c *gin.Context) {
 	c.JSON(http.StatusOK, thread)
 }
 
+func GetThreads(c *gin.Context) {
+	var threads []models.Thread
+
+	if err := database.DB.Preload("User").Order("created_at DESC").Find(&threads).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch threads"})
+		return
+	}
+
+	c.JSON(http.StatusOK, threads)
+}
+
 func CreatePost(c *gin.Context) {
 	threadID, err := strconv.Atoi(c.Param("id"))
 	if err != nil {
