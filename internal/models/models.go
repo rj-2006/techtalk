@@ -17,13 +17,22 @@ type User struct {
 }
 
 type Thread struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Title     string    `gorm:"not null" json:"title"`
-	UserID    uint      `gorm:"not null" json:"user_id"`
-	User      User      `gorm:"foreignKey:UserID" json:"user"`
-	Posts     []Post    `gorm:"foreignKey:ThreadID" json:"posts,omitempty"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	ID        uint       `gorm:"primaryKey" json:"id"`
+	Title     string     `gorm:"not null" json:"title"`
+	UserID    uint       `gorm:"not null" json:"user_id"`
+	User      User       `gorm:"foreignKey:UserID" json:"user"`
+	Posts     []Post     `gorm:"foreignKey:ThreadID" json:"posts,omitempty"`
+	CreatedAt time.Time  `json:"created_at"`
+	UpdatedAt time.Time  `json:"updated_at"`
+	Reactions []Reaction `gorm:"foreignKey:ThreadID"`
+}
+
+type Reaction struct {
+	ID        uint   `gorm:"primaryKey"`
+	ThreadID  uint   `gorm:"not null;index"`
+	UserID    uint   `gorm:"not null"`
+	Emoji     string `gorm:"not null"`
+	CreatedAt time.Time
 }
 
 type Post struct {
