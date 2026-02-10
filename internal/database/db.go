@@ -35,5 +35,9 @@ func Migrate() error {
 		&models.ChatMessage{},
 		&models.GameRoom{},
 		&models.GameState{},
+		&models.ThreadImage{},
+		&models.ThreadReaction{},
+		&models.MessageReaction{},
+		&models.CustomEmoji{},
 	)
 }
