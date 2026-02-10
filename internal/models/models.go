@@ -14,25 +14,19 @@ type User struct {
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
+	Avatar    string         `gorm:"default:null" json:"avatr,omitempty"`
 }
 
 type Thread struct {
-	ID        uint       `gorm:"primaryKey" json:"id"`
-	Title     string     `gorm:"not null" json:"title"`
-	UserID    uint       `gorm:"not null" json:"user_id"`
-	User      User       `gorm:"foreignKey:UserID" json:"user"`
-	Posts     []Post     `gorm:"foreignKey:ThreadID" json:"posts,omitempty"`
-	CreatedAt time.Time  `json:"created_at"`
-	UpdatedAt time.Time  `json:"updated_at"`
-	Reactions []Reaction `gorm:"foreignKey:ThreadID"`
-}
-
-type Reaction struct {
-	ID        uint   `gorm:"primaryKey"`
-	ThreadID  uint   `gorm:"not null;index"`
-	UserID    uint   `gorm:"not null"`
-	Emoji     string `gorm:"not null"`
-	CreatedAt time.Time
+	ID        uint             `gorm:"primaryKey" json:"id"`
+	Title     string           `gorm:"not null" json:"title"`
+	UserID    uint             `gorm:"not null" json:"user_id"`
+	User      User             `gorm:"foreignKey:UserID" json:"user"`
+	Posts     []Post           `gorm:"foreignKey:ThreadID" json:"posts,omitempty"`
+	CreatedAt time.Time        `json:"created_at"`
+	UpdatedAt time.Time        `json:"updated_at"`
+	Images    []ThreadImage    `gorm:"foreignKey:ThreadID" json:"images,omitempty"`
+	Reactions []ThreadReaction `gorm:"foreignKey:ThreadID" json:"reactions,omitempty"`
 }
 
 type Post struct {
@@ -54,12 +48,13 @@ type Chatroom struct {
 }
 
 type ChatMessage struct {
-	ID         uint      `gorm:"primaryKey" json:"id"`
-	ChatroomID uint      `gorm:"not null;index" json:"chatroom_id"`
-	UserID     uint      `gorm:"not null" json:"user_id"`
-	User       User      `gorm:"foreignKey:UserID" json:"user"`
-	Content    string    `gorm:"type:text;not null" json:"content"`
-	CreatedAt  time.Time `json:"created_at"`
+	ID         uint              `gorm:"primaryKey" json:"id"`
+	ChatroomID uint              `gorm:"not null;index" json:"chatroom_id"`
+	UserID     uint              `gorm:"not null" json:"user_id"`
+	User       User              `gorm:"foreignKey:UserID" json:"user"`
+	Content    string            `gorm:"type:text;not null" json:"content"`
+	CreatedAt  time.Time         `json:"created_at"`
+	Reactions  []MessageReaction `gorm:"foreignKey:MessageID" json:"reactions,omitempty"`
 }
 
 type GameRoom struct {
@@ -77,4 +72,37 @@ type GameState struct {
 	GameRoomID uint      `gorm:"not null;uniqueIndex" json:"game_room_id"`
 	StateData  string    `gorm:"type:jsonb" json:"state_data"` // JSON blob
 	UpdatedAt  time.Time `json:"updated_at"`
+}
+
+type ThreadImage struct {
+	ID       uint   `gorm:"primaryKey" json:"id"`
+	ThreadID uint   `gorm:"not null;index" json:"thread_id"`
+	URL      string `gorm:"not null" json:"url"`
+	Caption  string `json:"caption,omitempty"`
+}
+
+type ThreadReaction struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	ThreadID  uint      `gorm:"not null;index" json:"thread_id"`
+	UserID    uint      `gorm:"not null" json:"user_id"`
+	User      User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Emoji     string    `gorm:"not null" json:"emoji"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type MessageReaction struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	MessageID uint      `gorm:"not null;index" json:"message_id"`
+	UserID    uint      `gorm:"not null" json:"user_id"`
+	User      User      `gorm:"foreignKey:UserID" json:"user,omitempty"`
+	Emoji     string    `gorm:"not null" json:"emoji"`
+	CreatedAt time.Time `json:"created_at"`
+}
+
+type CustomEmoji struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Name      string    `gorm:"unique;not null" json:"name"`
+	URL       string    `gorm:"not null" json:"url"`
+	CreatedBy uint      `gorm:"not null" json:"created_by"`
+	CreatedAt time.Time `json:"created_at"`
 }
