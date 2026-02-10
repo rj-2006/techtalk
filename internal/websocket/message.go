@@ -8,6 +8,8 @@ const (
 	MessageTypeJoin     = "join"
 	MessageTypeLeave    = "leave"
 	MessageTypeError    = "error"
+	MessageTypeTyping   = "typing"
+	MessageTypeReaction = "reaction"
 )
 
 type Message struct {
@@ -31,4 +33,17 @@ type GameMoveMessage struct {
 	VelocityX float64 `json:"velocity_x"`
 	VelocityY float64 `json:"velocity_y"`
 	Rotation  float64 `json:"rotation"`
+}
+
+type TypingMessage struct {
+	UserID   uint   `json:"user_id"`
+	Username string `json:"username"`
+}
+
+type ReactionMessage struct {
+	MessageID uint   `json:"message_id"`
+	UserID    uint   `json:"user_id"`
+	Username  string `json:"username"`
+	Emoji     string `json:"emoji"`
+	Action    string `json:"action"`
 }
