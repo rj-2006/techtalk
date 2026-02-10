@@ -14,7 +14,7 @@ type User struct {
 	CreatedAt time.Time      `json:"created_at"`
 	UpdatedAt time.Time      `json:"updated_at"`
 	DeletedAt gorm.DeletedAt `gorm:"index" json:"-"`
-	Avatar    string         `gorm:"default:null" json:"avatr,omitempty"`
+	Avatar    string         `gorm:"default:null" json:"avatar,omitempty"`
 }
 
 type Thread struct {
