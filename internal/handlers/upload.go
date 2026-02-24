@@ -8,6 +8,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/rj-2006/techtalk/internal/database"
+	"github.com/rj-2006/techtalk/internal/models"
 )
 
 const (
@@ -49,4 +51,33 @@ func UploadAvatar(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
 		return
 	}
+
+	avatarURL := fmt.Sprintf("/uploads/avatars/%s", filename)
+
+	var user models.User
+
+	if err := database.DB.First(&user, userID).Error; err != nil {
+		c.JSON(http.StatusNotFound, gin.H{"error": "user not found."})
+		return
+	}
+
+	if user.Avatar != " "{
+		oldpath := "." + user.Avatar
+		os.Remove(oldpath)
+	}
+
+	user.Avatar = avatarURL
+	if err := database.DB.Save(&user).Error; err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to update avatar"})
+		return
+	}
+
+	c.JSON(http.StatusOK,gin.H{
+		"message" : "Avatar uploaded successfully!"
+		"url" : avatarURL,
+	})
+}
+
+func UploadThreadImage(c *gin.Context) {
+	
 }
