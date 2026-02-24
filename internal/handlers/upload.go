@@ -79,5 +79,35 @@ func UploadAvatar(c *gin.Context) {
 }
 
 func UploadThreadImage(c *gin.Context) {
-	
+	file, err := c.FormFile("image")
+	if err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "no file uploaded"})
+		return
+	}
+
+	if file.Size > MaxImageSize {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "file size is too big"})
+		return
+	}
+
+	ext := strings.ToLower(filepath.Ext(file.Filename))
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file type"})
+		return
+	}
+
+	filename := fmt.Sprintf("%d_%s%s", userID, uuid.New().String(), time.Now().Unix(), ext)
+	filepath := filepath.Join(UploadPath, "images", filename)
+
+	if err := c.SaveUploadedFile(file, filepath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
+		return
+	}
+
+	imageURL := fmt.Sprintf("/uploads/images/%s", filename)
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Image uploaded successfully!",
+		"url":     imageURL,
+	})
 }
