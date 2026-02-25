@@ -42,16 +42,31 @@ func main() {
 	protected := r.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
 	{
+		// Forum
 		protected.POST("/threads", handlers.CreateThread)
 		protected.GET("/threads", handlers.GetThreads)
 		protected.GET("/threads/:id", handlers.GetThread)
 		protected.POST("/threads/:id/posts", handlers.CreatePost)
+
+		// Thread Reactions
+		protected.POST("/threads/:id/reactions", handlers.AddThreadReactions)
+		protected.DELETE("/threads/:id/reactions/:emoji", handlers.RemoveThreadReaction)
+		protected.GET("/threads/:id/reactions", handlers.GetThreadReactions)
+
+		// Chat
 		protected.POST("/chatrooms", handlers.CreateChatroom)
 		protected.GET("/chatrooms", handlers.GetChatrooms)
 		protected.GET("/chatrooms/:id/history", handlers.GetChatHistory)
 		protected.GET("/chatrooms/:id/ws", handlers.HandleChatWebsocket)
+
+		// Upload
 		protected.POST("/upload/avatar", handlers.UploadAvatar)
 		protected.POST("/upload/image", handlers.UploadThreadImage)
+
+		// Custom Emojis
+		protected.POST("/emojis", handlers.CreateCustomEmoji)       // Admin only
+		protected.GET("/emojis", handlers.GetCustomEmojis)          // Everyone
+		protected.DELETE("/emojis/:id", handlers.DeleteCustomEmoji) // Admin only
 	}
 
 	port := os.Getenv("PORT")
