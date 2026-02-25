@@ -27,7 +27,7 @@ func Connect(host, user, password, dbname, port string) error {
 }
 
 func Migrate() error {
-	return DB.AutoMigrate(
+	err := DB.AutoMigrate(
 		&models.User{},
 		&models.Thread{},
 		&models.Post{},
@@ -40,4 +40,20 @@ func Migrate() error {
 		&models.MessageReaction{},
 		&models.CustomEmoji{},
 	)
+
+	if err != nil {
+		return err
+	}
+
+	DB.Exec(`
+	CREATE UNIQUE INDEX IF NOT EXISTS idx_thread_reactions_unique 
+		ON thread_reactions(thread_id, user_id, emoji)
+	`)
+
+	DB.Exec(`
+		CREATE UNIQUE INDEX IF NOT EXISTS idx_message_reactions_unique 
+		ON message_reactions(message_id, user_id, emoji)
+	`)
+
+	return nil
 }
