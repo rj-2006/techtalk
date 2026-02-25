@@ -6,8 +6,10 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/rj-2006/techtalk/internal/database"
 	"github.com/rj-2006/techtalk/internal/models"
 )
@@ -29,25 +31,25 @@ func UploadAvatar(c *gin.Context) {
 
 	file, err := c.FormFile("avatar")
 	if err != nil {
-		c.JSON(http.StatusBadRequest,gin.H{"error":"No File Uploaded"})
-		return 
+		c.JSON(http.StatusBadRequest, gin.H{"error": "No File Uploaded"})
+		return
 	}
 
-	if file.size > MaxAvatarSize {
+	if file.Size > MaxAvatarSize {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "file size is too big"})
 		return
 	}
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
-	if ext != ".jpg" && ext! = ".jpeg" && ext != ".png" && ext != ".webp" {
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file type"})
 		return
 	}
 
 	filename := fmt.Sprintf("%d_%s%s", userID, uuid.New().String(), ext)
-	filepath := filepath.Join(UploadPath, "avatars", filename)
+	filePath := filepath.Join(UploadPath, "avatars", filename)
 
-	if err := c.SaveUploadedFile(file,filepath); err != nil {
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
 		return
 	}
@@ -55,15 +57,14 @@ func UploadAvatar(c *gin.Context) {
 	avatarURL := fmt.Sprintf("/uploads/avatars/%s", filename)
 
 	var user models.User
-
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "user not found."})
 		return
 	}
 
-	if user.Avatar != " "{
-		oldpath := "." + user.Avatar
-		os.Remove(oldpath)
+	if user.Avatar != "" {
+		oldPath := "." + user.Avatar
+		os.Remove(oldPath)
 	}
 
 	user.Avatar = avatarURL
@@ -72,9 +73,9 @@ func UploadAvatar(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusOK,gin.H{
-		"message" : "Avatar uploaded successfully!"
-		"url" : avatarURL,
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Avatar uploaded successfully!",
+		"url":     avatarURL,
 	})
 }
 
@@ -91,23 +92,23 @@ func UploadThreadImage(c *gin.Context) {
 	}
 
 	ext := strings.ToLower(filepath.Ext(file.Filename))
-	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".webp" {
-		c.JSON(http.StatusBadRequest, gin.H{"error": "invalid file type"})
+	if ext != ".jpg" && ext != ".jpeg" && ext != ".png" && ext != ".gif" && ext != ".webp" {
+		c.JSON(http.StatusBadRequest, gin.H{"error": "Invalid file type (jpg, png, gif, webp only)"})
 		return
 	}
 
-	filename := fmt.Sprintf("%d_%s%s", userID, uuid.New().String(), time.Now().Unix(), ext)
-	filepath := filepath.Join(UploadPath, "images", filename)
+	filename := fmt.Sprintf("%s_%d%s", uuid.New().String(), time.Now().Unix(), ext)
+	filePath := filepath.Join(UploadPath, "images", filename)
 
-	if err := c.SaveUploadedFile(file, filepath); err != nil {
-		c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to save file"})
+	if err := c.SaveUploadedFile(file, filePath); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to save file"})
 		return
 	}
 
 	imageURL := fmt.Sprintf("/uploads/images/%s", filename)
 
 	c.JSON(http.StatusOK, gin.H{
-		"message": "Image uploaded successfully!",
+		"message": "Image uploaded successfully",
 		"url":     imageURL,
 	})
 }

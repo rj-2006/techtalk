@@ -50,6 +50,8 @@ func main() {
 		protected.GET("/chatrooms", handlers.GetChatrooms)
 		protected.GET("/chatrooms/:id/history", handlers.GetChatHistory)
 		protected.GET("/chatrooms/:id/ws", handlers.HandleChatWebsocket)
+		protected.POST("/upload/avatar", handlers.UploadAvatar)
+		protected.POST("/upload/image", handlers.UploadThreadImage)
 	}
 
 	port := os.Getenv("PORT")
@@ -58,5 +60,6 @@ func main() {
 	}
 
 	log.Printf("Starting server on port: %s", port)
+	r.Static("/uploads", "./uploads")
 	r.Run(":" + port)
 }

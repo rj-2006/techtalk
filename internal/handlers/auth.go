@@ -54,6 +54,7 @@ func Register(c *gin.Context) {
 			"id":       user.ID,
 			"username": user.Username,
 			"email":    user.Email,
+			"avatar":   user.Avatar,
 		},
 	})
 }
@@ -101,6 +102,7 @@ func Login(c *gin.Context) {
 			"id":       user.ID,
 			"username": user.Username,
 			"email":    user.Email,
+			"avatar":   user.Avatar,
 		},
 	})
 
