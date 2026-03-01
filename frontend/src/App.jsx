@@ -6,6 +6,7 @@ import { LoginPage } from './pages/auth/login-page'
 import { RegisterPage } from './pages/auth/register-page'
 import { ThreadListPage } from './pages/forum/thread-list-page'
 import { ThreadDetailPage } from './pages/forum/thread-detail-page'
+import { ChatPage } from './pages/chat/chat-page'
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
@@ -38,6 +39,8 @@ function App() {
             <Routes>
               <Route path="/" element={<ThreadListPage />} />
               <Route path="/threads/:id" element={<ThreadDetailPage />} />
+              <Route path="/chat" element={<ChatPage />} />
+              <Route path="/chat/:id" element={<ChatPage />} />
             </Routes>
           </AppLayout>
         }
