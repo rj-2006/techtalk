@@ -1,5 +1,5 @@
-import { useAuthStore } from '@/stores/auth-store'
-import type { ApiError } from '@/types/api'
+import { useAuthStore } from '../stores/auth-store'
+import type { ApiError } from '../types/api'
 
 const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:5070'
 
