@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"log"
 	"net/http"
 	"strconv"
 
@@ -11,7 +12,12 @@ import (
 
 func CreateThread(c *gin.Context) {
 	var req struct {
-		Title string `json:"title" binding:"required,min=5,max=200"`
+		Title   string `json:"title" binding:"required,min=3,max=200"`
+		Content string `json:"content"`
+		Images  []struct {
+			URL     string `json:"url" binding:"required"`
+			Caption string `json:"caption"`
+		} `json:"images"`
 	}
 
 	if err := c.ShouldBindJSON(&req); err != nil {
@@ -31,7 +37,32 @@ func CreateThread(c *gin.Context) {
 		return
 	}
 
-	database.DB.Preload("User").First(&thread, thread.ID)
+	// If content is provided, create initial post
+	if req.Content != "" {
+		post := models.Post{
+			Content:  req.Content,
+			ThreadID: thread.ID,
+			UserID:   userID,
+		}
+		database.DB.Create(&post)
+	}
+
+	if len(req.Images) > 0 {
+		images := make([]models.ThreadImage, 0, len(req.Images))
+		for _, image := range req.Images {
+			images = append(images, models.ThreadImage{
+				ThreadID: thread.ID,
+				URL:      image.URL,
+				Caption:  image.Caption,
+			})
+		}
+		if err := database.DB.Create(&images).Error; err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to attach thread images."})
+			return
+		}
+	}
+
+	database.DB.Preload("User").Preload("Posts").Preload("Images").First(&thread, thread.ID)
 
 	c.JSON(http.StatusCreated, thread)
 }
@@ -45,18 +76,48 @@ func GetThread(c *gin.Context) {
 
 	var thread models.Thread
 
-	if err := database.DB.Preload("User").Preload("Posts.User").First(&thread, threadID).Error; err != nil {
+	// Use distinct queries to load related data
+	if err := database.DB.Preload("User").First(&thread, threadID).Error; err != nil {
 		c.JSON(http.StatusNotFound, gin.H{"error": "Thread not found."})
 		return
 	}
+
+	// Load posts with user
+	database.DB.Where("thread_id = ?", threadID).Find(&thread.Posts)
+	for i := range thread.Posts {
+		database.DB.First(&thread.Posts[i].User, thread.Posts[i].UserID)
+	}
+
+	// Load reactions with user
+	database.DB.Where("thread_id = ?", threadID).Find(&thread.Reactions)
+	for i := range thread.Reactions {
+		database.DB.First(&thread.Reactions[i].User, thread.Reactions[i].UserID)
+	}
+
+	database.DB.Where("thread_id = ?", threadID).Find(&thread.Images)
+
+	log.Printf("=== GetThread: returning thread with %d reactions ===", len(thread.Reactions))
 
 	c.JSON(http.StatusOK, thread)
 }
 
 func GetThreads(c *gin.Context) {
 	var threads []models.Thread
+	query := database.DB.
+		Preload("User").
+		Preload("Posts").
+		Preload("Posts.User").
+		Preload("Images").
+		Preload("Reactions").
+		Preload("Reactions.User").
+		Order("created_at DESC")
 
-	if err := database.DB.Preload("User").Order("created_at DESC").Find(&threads).Error; err != nil {
+	search := c.Query("search")
+	if search != "" {
+		query = query.Where("title ILIKE ?", "%"+search+"%")
+	}
+
+	if err := query.Find(&threads).Error; err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to fetch threads"})
 		return
 	}

@@ -1,7 +1,7 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { api } from '../lib/api-client'
 import { queryKeys } from '../lib/query-provider'
-import type { Chatroom, ChatMessage, PaginatedResponse } from '../types/api'
+import type { Chatroom, ChatMessage } from '../types/api'
 
 export function useChatrooms() {
   return useQuery({
@@ -18,7 +18,7 @@ export function useChatHistory(chatroomId: number, params?: { page?: number; lim
       if (params?.page) searchParams.set('page', String(params.page))
       if (params?.limit) searchParams.set('limit', String(params.limit))
       const query = searchParams.toString()
-      return api.get<PaginatedResponse<ChatMessage>>(`/api/chatrooms/${chatroomId}/history${query ? `?${query}` : ''}`)
+      return api.get<ChatMessage[]>(`/api/chatrooms/${chatroomId}/history${query ? `?${query}` : ''}`)
     },
     enabled: !!chatroomId,
   })

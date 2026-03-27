@@ -85,26 +85,28 @@ func (h *Hub) Run() {
 }
 
 func (h *Hub) notifyJoin(client *Client) {
-	msg := Message{
-		Type:     MessageTypeJoin,
-		RoomID:   client.RoomID,
-		UserID:   client.UserID,
-		Username: client.Username,
+	msg := Event{
+		Type: EventTypeUserJoined,
+		Payload: TypingMessage{
+			UserID:   client.UserID,
+			Username: client.Username,
+		},
 	}
 	h.broadcastToRoom(client.RoomID, msg)
 }
 
 func (h *Hub) notifyLeave(client *Client) {
-	msg := Message{
-		Type:     MessageTypeLeave,
-		RoomID:   client.RoomID,
-		UserID:   client.UserID,
-		Username: client.Username,
+	msg := Event{
+		Type: EventTypeUserLeft,
+		Payload: TypingMessage{
+			UserID:   client.UserID,
+			Username: client.Username,
+		},
 	}
 	h.broadcastToRoom(client.RoomID, msg)
 }
 
-func (h *Hub) broadcastToRoom(roomID string, msg Message) {
+func (h *Hub) broadcastToRoom(roomID string, msg Event) {
 	data, _ := json.Marshal(msg)
 	h.mu.RLock()
 	clients := h.Rooms[roomID]

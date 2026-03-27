@@ -1,5 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useAuthStore } from '../stores/auth-store'
+import type { ChatMessage } from '../types/api'
 
 interface WebSocketMessage {
   type: string
@@ -41,10 +42,15 @@ export function useWebSocket({
   const token = useAuthStore((state) => state.token)
 
   const connect = useCallback(() => {
-    if (wsRef.current?.readyState === WebSocket.OPEN) {
+    if (!url) {
       return
     }
-
+    
+    if (wsRef.current) {
+      wsRef.current.close()
+      wsRef.current = null
+    }
+    
     const wsUrl = token ? `${url}?token=${encodeURIComponent(token)}` : url
     
     try {
@@ -57,6 +63,22 @@ export function useWebSocket({
         onOpen?.()
       }
 
+      ws.onerror = (error) => {
+        onError?.(error)
+      }
+
+      ws.onclose = (event) => {
+        setIsConnected(false)
+        onClose?.()
+        
+        if (event.code !== 1000 && reconnectCountRef.current < reconnectAttempts) {
+          reconnectCountRef.current++
+          reconnectTimeoutRef.current = setTimeout(() => {
+            connect()
+          }, reconnectInterval)
+        }
+      }
+
       ws.onmessage = (event) => {
         try {
           const message = JSON.parse(event.data) as WebSocketMessage
@@ -65,22 +87,6 @@ export function useWebSocket({
         } catch (error) {
           console.error('Failed to parse WebSocket message:', error)
         }
-      }
-
-      ws.onclose = () => {
-        setIsConnected(false)
-        onClose?.()
-
-        if (reconnectCountRef.current < reconnectAttempts) {
-          reconnectTimeoutRef.current = setTimeout(() => {
-            reconnectCountRef.current++
-            connect()
-          }, reconnectInterval)
-        }
-      }
-
-      ws.onerror = (error) => {
-        onError?.(error)
       }
     } catch (error) {
       console.error('WebSocket connection error:', error)
@@ -110,12 +116,14 @@ export function useWebSocket({
   }, [])
 
   useEffect(() => {
+    if (!url) return
+    
     connect()
 
     return () => {
       disconnect()
     }
-  }, [connect, disconnect])
+  }, [url, connect, disconnect])
 
   return {
     isConnected,
@@ -124,24 +132,14 @@ export function useWebSocket({
   }
 }
 
-interface ChatMessage {
-  id: number
-  chatroom_id: number
-  user_id: number
-  user: {
-    id: number
-    username: string
-    avatar?: string
-  }
-  content: string
-  created_at: string
-}
-
 interface UseChatWebSocketOptions {
   chatroomId: number
   onMessage?: (message: ChatMessage) => void
   onUserJoined?: (userId: number, username: string) => void
   onUserLeft?: (userId: number) => void
+  onTyping?: (userId: number, username: string) => void
+  onError?: (error: Event) => void
+  onClose?: () => void
 }
 
 interface UseChatWebSocketReturn {
@@ -157,9 +155,12 @@ export function useChatWebSocket({
   onMessage,
   onUserJoined,
   onUserLeft,
+  onTyping,
+  onError,
+  onClose,
 }: UseChatWebSocketOptions): UseChatWebSocketReturn {
   const baseUrl = import.meta.env.VITE_API_URL?.replace(/^http/, 'ws') || 'ws://localhost:5070'
-  const wsUrl = `${baseUrl}/api/chatrooms/${chatroomId}/ws`
+  const wsUrl = chatroomId > 0 ? `${baseUrl}/api/chatrooms/${chatroomId}/ws` : ''
 
   const handleMessage = useCallback((message: WebSocketMessage) => {
     switch (message.type) {
@@ -171,10 +172,15 @@ export function useChatWebSocket({
         onUserJoined?.(joined.user_id, joined.username)
         break
       case 'user_left':
-        onUserLeft?.(message.payload as { user_id: number })
+        const left = message.payload as { user_id: number }
+        onUserLeft?.(left.user_id)
+        break
+      case 'typing':
+        const typing = message.payload as { user_id: number; username: string }
+        onTyping?.(typing.user_id, typing.username)
         break
     }
-  }, [onMessage, onUserJoined, onUserLeft])
+  }, [onMessage, onUserJoined, onUserLeft, onTyping])
 
   const {
     isConnected,
@@ -182,6 +188,8 @@ export function useChatWebSocket({
   } = useWebSocket({
     url: wsUrl,
     onMessage: handleMessage,
+    onError,
+    onClose,
   })
 
   const sendMessage = useCallback((content: string) => {
@@ -200,14 +208,14 @@ export function useChatWebSocket({
 
   const joinRoom = useCallback(() => {
     rawSendMessage({
-      type: 'join_room',
+      type: 'join',
       payload: {},
     })
   }, [rawSendMessage])
 
   const leaveRoom = useCallback(() => {
     rawSendMessage({
-      type: 'leave_room',
+      type: 'leave',
       payload: {},
     })
   }, [rawSendMessage])

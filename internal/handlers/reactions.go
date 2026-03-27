@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -8,6 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/rj-2006/techtalk/internal/database"
 	"github.com/rj-2006/techtalk/internal/models"
+	"gorm.io/gorm"
 )
 
 var validEmojis = map[string]bool{
@@ -15,8 +17,8 @@ var validEmojis = map[string]bool{
 	"🔥":  true,
 	"😂":  true,
 	"👍":  true,
-	"🤔":  true,
 	"🎉":  true,
+	"😮":  true,
 }
 
 func AddThreadReactions(c *gin.Context) {
@@ -45,10 +47,18 @@ func AddThreadReactions(c *gin.Context) {
 
 	var existing models.ThreadReaction
 	result := database.DB.Where("thread_id = ? AND user_id = ? AND emoji = ?",
-		threadID, userID, req.Emoji).First(&existing)
+		threadID, userID, req.Emoji).Take(&existing)
 
 	if result.Error == nil {
-		c.JSON(http.StatusOK, gin.H{"message": "Reaction already exists"})
+		database.DB.Preload("User").First(&existing, existing.ID)
+		c.JSON(http.StatusOK, gin.H{
+			"message":  "Reaction already exists",
+			"reaction": existing,
+		})
+		return
+	}
+	if !errors.Is(result.Error, gorm.ErrRecordNotFound) {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to check existing reaction"})
 		return
 	}
 

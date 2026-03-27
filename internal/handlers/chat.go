@@ -141,30 +141,66 @@ func handleChatMessages(client *ws.Client) {
 			break
 		}
 
-		var msg ws.Message
+		var msg ws.IncomingMessage
 		if err := json.Unmarshal(message, &msg); err != nil {
 			log.Printf("Invalid message format: %v", err)
 			continue
 		}
 
-		msg.UserID = client.UserID
-		msg.Username = client.Username
-		msg.Timestamp = time.Now().Unix()
-
 		switch msg.Type {
-		case ws.MessageTypeChat:
+		case ws.MessageTypeChat, ws.MessageTypeSendChat:
+			content := msg.Content
+			if content == "" && len(msg.Payload) > 0 {
+				var payload ws.ChatMessage
+				if err := json.Unmarshal(msg.Payload, &payload); err == nil {
+					content = payload.Content
+				}
+			}
+			if content == "" {
+				continue
+			}
+
 			roomID, _ := strconv.Atoi(client.RoomID)
 			chatMessage := models.ChatMessage{
 				ChatroomID: uint(roomID),
 				UserID:     client.UserID,
-				Content:    msg.Content,
+				Content:    content,
 			}
 
 			if err := database.DB.Create(&chatMessage).Error; err != nil {
 				log.Printf("Failed to save chat message: %v", err)
+				continue
 			}
 
-			data, _ := json.Marshal(msg)
+			if err := database.DB.Preload("User").First(&chatMessage, chatMessage.ID).Error; err != nil {
+				log.Printf("Failed to hydrate chat message: %v", err)
+				continue
+			}
+
+			data, _ := json.Marshal(ws.Event{
+				Type: ws.EventTypeNewMessage,
+				Payload: ws.OutgoingChatMessage{
+					ID:         chatMessage.ID,
+					ChatroomID: chatMessage.ChatroomID,
+					UserID:     chatMessage.UserID,
+					User:       chatMessage.User,
+					Content:    chatMessage.Content,
+					CreatedAt:  chatMessage.CreatedAt.Format(time.RFC3339),
+					Reactions:  chatMessage.Reactions,
+				},
+			})
+			client.Hub.Broadcast <- &ws.BroadcastMessage{
+				RoomID:  client.RoomID,
+				Message: data,
+			}
+		case ws.MessageTypeTyping:
+			data, _ := json.Marshal(ws.Event{
+				Type: ws.MessageTypeTyping,
+				Payload: ws.TypingMessage{
+					UserID:   client.UserID,
+					Username: client.Username,
+				},
+			})
 			client.Hub.Broadcast <- &ws.BroadcastMessage{
 				RoomID:  client.RoomID,
 				Message: data,

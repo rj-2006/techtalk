@@ -18,6 +18,7 @@ interface CreateThreadModalProps {
   onClose: () => void
   onSubmit: (data: { title: string; content?: string; images?: File[] }) => Promise<void>
   isLoading?: boolean
+  error?: string | null
 }
 
 export function CreateThreadModal({
@@ -25,6 +26,7 @@ export function CreateThreadModal({
   onClose,
   onSubmit,
   isLoading,
+  error,
 }: CreateThreadModalProps) {
   const [images, setImages] = useState<File[]>([])
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
@@ -102,6 +104,11 @@ export function CreateThreadModal({
         </div>
 
         <form onSubmit={handleSubmit(onFormSubmit)} className="space-y-4">
+          {error && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {error}
+            </div>
+          )}
           <div className="space-y-2">
             <label className="text-sm font-medium">Title</label>
             <Input

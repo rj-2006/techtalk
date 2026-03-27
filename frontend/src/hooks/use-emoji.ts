@@ -15,8 +15,8 @@ export function useCreateEmoji() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: (data: { name: string; url: string }) =>
-      api.post<CustomEmoji>('/api/emojis', data),
+    mutationFn: (data: { name: string; file: File }) =>
+      import('../services/thread-service').then(({ emojiService }) => emojiService.createEmoji(data)),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.emojis.custom() })
     },

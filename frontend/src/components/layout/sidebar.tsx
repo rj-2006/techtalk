@@ -40,15 +40,16 @@ function SidebarItem({ item, collapsed, active }: SidebarItemProps) {
         collapsed && "justify-center px-2"
       )}
       title={collapsed ? item.label : undefined}
+      aria-current={active ? 'page' : undefined}
     >
-      <span className={cn("flex-shrink-0", collapsed ? "h-5 w-5" : "h-5 w-5")}>
+      <span className={cn("flex-shrink-0", collapsed ? "h-5 w-5" : "h-5 w-5")} aria-hidden="true">
         {item.icon}
       </span>
       {!collapsed && (
         <>
           <span className="flex-1">{item.label}</span>
           {item.badge !== undefined && item.badge > 0 && (
-            <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground">
+            <span className="rounded-full bg-primary px-2 py-0.5 text-xs text-primary-foreground" aria-label={`${item.badge} notifications`}>
               {item.badge > 99 ? "99+" : item.badge}
             </span>
           )}
@@ -125,6 +126,7 @@ export function Sidebar({
               "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
               collapsed && "justify-center px-2"
             )}
+            aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"

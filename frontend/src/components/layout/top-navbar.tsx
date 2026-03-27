@@ -103,7 +103,8 @@ export function TopNavbarAction({
   className,
   children,
   onClick,
-}: TopNavbarActionProps) {
+  label,
+}: TopNavbarActionProps & { label?: string }) {
   return (
     <button
       onClick={onClick}
@@ -113,6 +114,7 @@ export function TopNavbarAction({
         "transition-colors",
         className
       )}
+      aria-label={label}
     >
       {children}
     </button>
@@ -142,16 +144,17 @@ export function TopNavbarUser({
         "hover:bg-accent transition-colors",
         className
       )}
+      aria-label={onClick ? `User menu: ${name}` : undefined}
     >
       <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary">
         {avatar ? (
           <img
             src={avatar}
-            alt={name}
+            alt=""
             className="h-8 w-8 rounded-full object-cover"
           />
         ) : (
-          <span className="text-sm font-medium text-primary-foreground">
+          <span className="text-sm font-medium text-primary-foreground" aria-hidden="true">
             {name?.charAt(0)?.toUpperCase() || "U"}
           </span>
         )}

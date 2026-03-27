@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams } from 'react-router-dom'
 import { useChatrooms, useChatHistory, useCreateChatroom } from '../../hooks/use-chat'
 import { useChatWebSocket } from '../../hooks/use-websocket'
@@ -16,9 +16,10 @@ export function ChatPage() {
   const chatroomId = id ? Number(id) : undefined
   const [messages, setMessages] = useState<ChatMessage[]>([])
   const [typingUsers, setTypingUsers] = useState<string[]>([])
+  const typingTimeoutsRef = useRef<Record<string, number>>({})
   
   const { data: chatrooms, isLoading: chatroomsLoading } = useChatrooms()
-  const { data: history, isLoading: historyLoading } = useChatHistory(chatroomId!)
+  const { data: history, isLoading: historyLoading } = useChatHistory(chatroomId || 0)
   const createChatroom = useCreateChatroom()
   
   const userId = useAuthStore((state) => state.user?.id)
@@ -30,29 +31,75 @@ export function ChatPage() {
     })
   }, [])
 
+  const handleTypingUser = useCallback((typingUserId: number, username: string) => {
+    if (typingUserId === userId) {
+      return
+    }
+
+    setTypingUsers((prev) => (prev.includes(username) ? prev : [...prev, username]))
+
+    const existingTimeout = typingTimeoutsRef.current[username]
+    if (existingTimeout) {
+      clearTimeout(existingTimeout)
+    }
+
+    typingTimeoutsRef.current[username] = window.setTimeout(() => {
+      setTypingUsers((prev) => prev.filter((user) => user !== username))
+      delete typingTimeoutsRef.current[username]
+    }, 2000)
+  }, [userId])
+
+  const handleUserLeft = useCallback((_leftUserId: number) => {
+    setTypingUsers([])
+    Object.values(typingTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId))
+    typingTimeoutsRef.current = {}
+  }, [])
+
   const { isConnected, sendMessage, sendTyping, joinRoom, leaveRoom } = useChatWebSocket({
-    chatroomId: chatroomId!,
+    chatroomId: chatroomId ?? 0,
     onMessage: handleNewMessage,
+    onTyping: handleTypingUser,
+    onUserLeft: handleUserLeft,
   })
 
   useEffect(() => {
-    if (history?.data) {
-      setMessages(history.data.reverse())
+    if (history && Array.isArray(history)) {
+      setMessages(history)
     }
   }, [history])
 
   useEffect(() => {
-    if (chatroomId) {
+    return () => {
+      Object.values(typingTimeoutsRef.current).forEach((timeoutId) => clearTimeout(timeoutId))
+    }
+  }, [])
+
+  useEffect(() => {
+    if (!chatroomId) return
+    
+    setMessages([])
+    
+    const timer = setTimeout(() => {
       joinRoom()
-      return () => leaveRoom()
+    }, 100)
+    
+    return () => {
+      clearTimeout(timer)
+      leaveRoom()
+      setTypingUsers([])
     }
   }, [chatroomId, joinRoom, leaveRoom])
 
   const handleSendMessage = (content: string) => {
+    if (!isConnected) {
+      console.warn('WebSocket not connected')
+      return
+    }
     sendMessage(content)
   }
 
   const handleTyping = () => {
+    if (!isConnected) return
     sendTyping()
   }
 
@@ -118,7 +165,6 @@ export function ChatPage() {
             <MessageInput
               onSend={handleSendMessage}
               onTyping={handleTyping}
-              disabled={!isConnected}
             />
           </>
         ) : (

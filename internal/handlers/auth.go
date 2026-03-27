@@ -12,6 +12,25 @@ import (
 	"golang.org/x/crypto/bcrypt"
 )
 
+func issueToken(user models.User) (string, error) {
+	claims := &middleware.Claims{
+		UserID:   user.ID,
+		Username: user.Username,
+		RegisteredClaims: jwt.RegisteredClaims{
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
+			IssuedAt:  jwt.NewNumericDate(time.Now()),
+		},
+	}
+
+	secret, err := middleware.JWTSecret()
+	if err != nil {
+		return "", err
+	}
+
+	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
+	return token.SignedString(secret)
+}
+
 type RegisterRequest struct {
 	Username string `json:"username" binding:"required,min=3,max=50"`
 	Email    string `json:"email" binding:"required,email"`
@@ -48,8 +67,15 @@ func Register(c *gin.Context) {
 		return
 	}
 
+	tokenString, err := issueToken(user)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token."})
+		return
+	}
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "User created successfully",
+		"token":   tokenString,
 		"user": gin.H{
 			"id":       user.ID,
 			"username": user.Username,
@@ -78,19 +104,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
-	// jwt creation
-
-	claims := &middleware.Claims{
-		UserID:   user.ID,
-		Username: user.Username,
-		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(24 * time.Hour)),
-			IssuedAt:  jwt.NewNumericDate(time.Now()),
-		},
-	}
-
-	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	tokenString, err := token.SignedString(middleware.JWTSecret)
+	tokenString, err := issueToken(user)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "Failed to generate token."})
 		return

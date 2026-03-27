@@ -3,7 +3,9 @@ package main
 import (
 	"log"
 	"os"
+	"time"
 
+	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
 	"github.com/rj-2006/techtalk/internal/database"
@@ -31,14 +33,31 @@ func main() {
 		log.Fatal("Migration failed: ", err)
 	}
 
-	r := gin.Default() // router
-
-	r.POST("/api/register", handlers.Register)
-	r.POST("/api/login", handlers.Login)
-
 	handlers.ChatHub = websocket.NewHub()
 	go handlers.ChatHub.Run()
 
+	r := gin.Default()
+
+	// CORS Middleware
+	r.Use(cors.New(cors.Config{
+		AllowOrigins: []string{
+			"http://localhost:5173",
+			"http://127.0.0.1:5173",
+			"http://localhost:4173",
+			"http://127.0.0.1:4173",
+		},
+		AllowMethods:     []string{"GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"},
+		AllowHeaders:     []string{"Origin", "Content-Type", "Authorization"},
+		ExposeHeaders:    []string{"Content-Length"},
+		AllowCredentials: true,
+		MaxAge:           12 * time.Hour,
+	}))
+
+	// Public routes
+	r.POST("/api/register", handlers.Register)
+	r.POST("/api/login", handlers.Login)
+
+	// Protected routes
 	protected := r.Group("/api")
 	protected.Use(middleware.AuthMiddleware())
 	{
@@ -64,10 +83,13 @@ func main() {
 		protected.POST("/upload/image", handlers.UploadThreadImage)
 
 		// Custom Emojis
-		protected.POST("/emojis", handlers.CreateCustomEmoji)       // Admin only
-		protected.GET("/emojis", handlers.GetCustomEmojis)          // Everyone
-		protected.DELETE("/emojis/:id", handlers.DeleteCustomEmoji) // Admin only
+		protected.POST("/emojis", handlers.CreateCustomEmoji)
+		protected.GET("/emojis", handlers.GetCustomEmojis)
+		protected.DELETE("/emojis/:id", handlers.DeleteCustomEmoji)
 	}
+
+	// Serve static files
+	r.Static("/uploads", "./uploads")
 
 	port := os.Getenv("PORT")
 	if port == "" {
@@ -75,6 +97,5 @@ func main() {
 	}
 
 	log.Printf("Starting server on port: %s", port)
-	r.Static("/uploads", "./uploads")
 	r.Run(":" + port)
 }

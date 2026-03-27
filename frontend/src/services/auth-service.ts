@@ -20,9 +20,9 @@ export const authService = {
   },
 
   async getCurrentUser(): Promise<User> {
-    const response = await api.get<User>('/api/auth/me')
-    useAuthStore.getState().setUser(response)
-    return response
+    const user = useAuthStore.getState().user
+    if (user) return user
+    throw new Error('No user session')
   },
 
   logout() {
@@ -35,8 +35,8 @@ export const authService = {
     return response
   },
 
-  async uploadAvatar(file: File): Promise<{ avatar: string }> {
-    const response = await api.upload<{ avatar: string }>('/api/upload/avatar', file, 'avatar')
+  async uploadAvatar(file: File): Promise<{ url: string }> {
+    const response = await api.upload<{ url: string }>('/api/upload/avatar', file, 'avatar')
     return response
   },
 }

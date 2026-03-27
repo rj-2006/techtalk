@@ -10,6 +10,7 @@ interface ThreadCardProps {
   onAddReaction: (emoji: string) => void
   onRemoveReaction: (emoji: string) => void
   isAuthenticated: boolean
+  currentUserId?: number
   className?: string
 }
 
@@ -18,6 +19,7 @@ export function ThreadCard({
   onAddReaction,
   onRemoveReaction,
   isAuthenticated,
+  currentUserId,
   className,
 }: ThreadCardProps) {
   const reactions = React.useMemo(() => {
@@ -27,20 +29,20 @@ export function ThreadCard({
       const existing = reactionMap.get(reaction.emoji)
       if (existing) {
         existing.count++
-        if (reaction.user_id === thread.user_id) {
+        if (reaction.user_id === currentUserId) {
           existing.hasReacted = true
         }
       } else {
         reactionMap.set(reaction.emoji, {
           emoji: reaction.emoji,
           count: 1,
-          hasReacted: false,
+          hasReacted: reaction.user_id === currentUserId,
         })
       }
     })
     
     return Array.from(reactionMap.values())
-  }, [thread.reactions, thread.user_id])
+  }, [currentUserId, thread.reactions])
 
   const postCount = thread.posts?.length || 0
   const imageCount = thread.images?.length || 0

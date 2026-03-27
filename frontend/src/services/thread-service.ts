@@ -1,20 +1,19 @@
 import { api } from '../lib/api-client'
-import { useAuthStore } from '../stores/auth-store'
-import type { Thread, Post, ThreadReaction, ChatMessage, CustomEmoji, PaginatedResponse, Chatroom } from '../types/api'
+import type { Thread, Post, ThreadReaction, ChatMessage, CustomEmoji, Chatroom } from '../types/api'
 
 export const threadService = {
   async getThreads(params?: {
     page?: number
     limit?: number
     search?: string
-  }): Promise<PaginatedResponse<Thread>> {
+  }): Promise<Thread[]> {
     const searchParams = new URLSearchParams()
     if (params?.page) searchParams.set('page', String(params.page))
     if (params?.limit) searchParams.set('limit', String(params.limit))
     if (params?.search) searchParams.set('search', params.search)
     
     const query = searchParams.toString()
-    return api.get(`/api/threads${query ? `?${query}` : ''}`)
+    return api.get<Thread[]>(`/api/threads${query ? `?${query}` : ''}`)
   },
 
   async getThread(id: number): Promise<Thread> {
@@ -26,30 +25,19 @@ export const threadService = {
     content?: string
     images?: File[]
   }): Promise<Thread> {
-    if (data.images && data.images.length > 0) {
-      const formData = new FormData()
-      formData.append('title', data.title)
-      if (data.content) formData.append('content', data.content)
-      data.images.forEach((img) => formData.append('images', img))
-      
-      const headers: Record<string, string> = {}
-      const token = useAuthStore.getState().token
-      if (token) headers['Authorization'] = `Bearer ${token}`
-      
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5070'
-      const response = await fetch(`${baseUrl}/api/threads`, {
-        method: 'POST',
-        headers,
-        body: formData,
-      })
-      
-      if (!response.ok) throw new Error('Failed to create thread')
-      return response.json()
-    }
-    
+    const uploadedImages = data.images?.length
+      ? await Promise.all(
+          data.images.map(async (image) => {
+            const response = await api.upload<{ url: string }>('/api/upload/image', image, 'image')
+            return { url: response.url }
+          })
+        )
+      : []
+
     return api.post<Thread>('/api/threads', {
       title: data.title,
-      content: data.content,
+      content: data.content || '',
+      images: uploadedImages,
     })
   },
 
@@ -62,14 +50,19 @@ export const threadService = {
   },
 
   async addReaction(threadId: number, emoji: string): Promise<ThreadReaction> {
-    return api.post<ThreadReaction>(`/api/threads/${threadId}/reactions`, { emoji })
+    const response = await api.post<{ message: string; reaction: ThreadReaction }>(`/api/threads/${threadId}/reactions`, { emoji })
+    return response.reaction
   },
 
   async removeReaction(threadId: number, emoji: string): Promise<void> {
     return api.delete(`/api/threads/${threadId}/reactions/${encodeURIComponent(emoji)}`)
   },
 
-  async getReactions(threadId: number): Promise<ThreadReaction[]> {
+  async getReactions(threadId: number): Promise<{
+    reactions: ThreadReaction[]
+    emoji_counts: Record<string, number>
+    emoji_users: Record<string, string[]>
+  }> {
     return api.get(`/api/threads/${threadId}/reactions`)
   },
 }
@@ -82,7 +75,7 @@ export const chatService = {
   async getChatHistory(chatroomId: number, params?: {
     page?: number
     limit?: number
-  }): Promise<PaginatedResponse<ChatMessage>> {
+  }): Promise<ChatMessage[]> {
     const searchParams = new URLSearchParams()
     if (params?.page) searchParams.set('page', String(params.page))
     if (params?.limit) searchParams.set('limit', String(params.limit))
@@ -106,9 +99,13 @@ export const emojiService = {
 
   async createEmoji(data: {
     name: string
-    url: string
+    file: File
   }): Promise<CustomEmoji> {
-    return api.post('/api/emojis', data)
+    const formData = new FormData()
+    formData.append('name', data.name)
+    formData.append('image', data.file)
+    const response = await api.postForm<{ message: string; emoji: CustomEmoji }>('/api/emojis', formData)
+    return response.emoji
   },
 
   async deleteEmoji(id: number): Promise<void> {

@@ -5,7 +5,6 @@ import { z } from 'zod'
 import { Button } from '../ui/button'
 import { Input } from '../ui/input'
 import { useCreateEmoji, useCustomEmojis } from '../../hooks/use-emoji'
-import { useAuthStore } from '../../stores/auth-store'
 
 const emojiSchema = z.object({
   name: z
@@ -70,27 +69,8 @@ export function EmojiUploadModal({ isOpen, onClose }: EmojiUploadModalProps) {
       return
     }
 
-    const formData = new FormData()
-    formData.append('name', data.name)
-    formData.append('url', file)
-
     try {
-      const baseUrl = import.meta.env.VITE_API_URL || 'http://localhost:5070'
-      const token = useAuthStore.getState().token
-      
-      const headers: Record<string, string> = {}
-      if (token) headers['Authorization'] = `Bearer ${token}`
-
-      const response = await fetch(`${baseUrl}/api/emojis`, {
-        method: 'POST',
-        headers,
-        body: formData,
-      })
-
-      if (!response.ok) {
-        throw new Error('Failed to upload emoji')
-      }
-
+      await createEmoji.mutateAsync({ name: data.name, file })
       handleClose()
     } catch {
       setError('name', { message: 'Failed to upload emoji' })
@@ -98,11 +78,6 @@ export function EmojiUploadModal({ isOpen, onClose }: EmojiUploadModalProps) {
   }
 
   if (!isOpen) return null
-
-  const isNameTaken = emojis?.some((e) => 
-    e.name === register('name').value
-  )
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/50" onClick={handleClose} />

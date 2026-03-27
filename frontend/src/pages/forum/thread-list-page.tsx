@@ -12,22 +12,33 @@ import { EmptyState } from '../../components/layout/protected-route'
 export function ThreadListPage() {
   const [search, setSearch] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [createError, setCreateError] = useState<string | null>(null)
   
   const { data, isLoading, error } = useThreads({ search })
   const createThread = useCreateThread()
+  const addReaction = useAddReaction()
+  const removeReaction = useRemoveReaction()
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
+  const currentUserId = useAuthStore((state) => state.user?.id)
 
   const handleCreateThread = async (data: { title: string; content?: string; images?: File[] }) => {
-    await createThread.mutateAsync(data)
+    try {
+      setCreateError(null)
+      await createThread.mutateAsync(data)
+      setShowCreateModal(false)
+    } catch (err) {
+      setCreateError(err instanceof Error ? err.message : 'Failed to create thread')
+    }
   }
 
-  const handleAddReaction = (threadId: number) => (emoji: string) => {
+  const handleAddReaction = (threadId: number) => async (emoji: string) => {
     if (!isAuthenticated) return
-    // This would need to be connected to the thread-specific mutation
+    await addReaction.mutateAsync({ threadId, emoji })
   }
 
-  const handleRemoveReaction = (threadId: number) => (emoji: string) => {
+  const handleRemoveReaction = (threadId: number) => async (emoji: string) => {
     if (!isAuthenticated) return
+    await removeReaction.mutateAsync({ threadId, emoji })
   }
 
   return (
@@ -49,7 +60,7 @@ export function ThreadListPage() {
         </PageActions>
       </PageHeader>
 
-      <div className="px-6 py-4">
+      <div className="flex-1 overflow-auto px-6 py-4">
         {/* Search */}
         <div className="mb-6">
           <Input
@@ -69,15 +80,16 @@ export function ThreadListPage() {
             title="Failed to load threads"
             description="Something went wrong. Please try again."
           />
-        ) : data?.data && data.data.length > 0 ? (
+        ) : data && data.length > 0 ? (
           <div className="space-y-4">
-            {data.data.map((thread) => (
+            {data.map((thread) => (
               <ThreadCard
                 key={thread.id}
                 thread={thread}
                 onAddReaction={handleAddReaction(thread.id)}
                 onRemoveReaction={handleRemoveReaction(thread.id)}
                 isAuthenticated={isAuthenticated}
+                currentUserId={currentUserId}
               />
             ))}
           </div>
@@ -106,6 +118,7 @@ export function ThreadListPage() {
         onClose={() => setShowCreateModal(false)}
         onSubmit={handleCreateThread}
         isLoading={createThread.isPending}
+        error={createError}
       />
     </PageContainer>
   )

@@ -110,6 +110,27 @@ class ApiClient {
     return this.handleResponse<T>(response)
   }
 
+  async postForm<T>(
+    endpoint: string,
+    formData: FormData,
+    includeAuth: boolean = true
+  ): Promise<T> {
+    const headers: HeadersInit = {}
+    if (includeAuth) {
+      const token = this.getToken()
+      if (token) {
+        headers['Authorization'] = `Bearer ${token}`
+      }
+    }
+
+    const response = await fetch(`${this.baseUrl}${endpoint}`, {
+      method: 'POST',
+      headers,
+      body: formData,
+    })
+    return this.handleResponse<T>(response)
+  }
+
   async upload<T>(
     endpoint: string,
     file: File,

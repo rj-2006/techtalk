@@ -1,78 +1,56 @@
-import { Routes, Route, useLocation } from 'react-router-dom'
+import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuthStore } from './stores/auth-store'
 import { AppLayout } from './components/layout/app-layout'
+import { AuthLayout } from './components/layout/app-layout'
 import { ProtectedRoute } from './components/layout/protected-route'
+import { ErrorBoundary } from './components/error-boundary'
+import { NavigationLoader } from './components/navigation-loader'
 import { LoginPage } from './pages/auth/login-page'
 import { RegisterPage } from './pages/auth/register-page'
 import { ThreadListPage } from './pages/forum/thread-list-page'
 import { ThreadDetailPage } from './pages/forum/thread-detail-page'
 import { ChatPage } from './pages/chat/chat-page'
-import { AnimatePresence, motion } from 'framer-motion'
-
-const pageVariants = {
-  initial: { opacity: 0, y: 8 },
-  animate: { opacity: 1, y: 0 },
-  exit: { opacity: 0, y: -8 },
-  transition: { duration: 0.2, ease: 'easeOut' },
-}
-
-function PageWrapper({ children }: { children: React.ReactNode }) {
-  return (
-    <motion.div
-      initial="initial"
-      animate="animate"
-      exit="exit"
-      variants={pageVariants}
-      transition={pageVariants.transition}
-    >
-      {children}
-    </motion.div>
-  )
-}
 
 function App() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated)
-  const location = useLocation()
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route
-          path="/login"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <PageWrapper>
-                <LoginPage />
-              </PageWrapper>
-            </ProtectedRoute>
-          }
-        />
-        <Route
-          path="/register"
-          element={
-            <ProtectedRoute isAuthenticated={isAuthenticated}>
-              <PageWrapper>
-                <RegisterPage />
-              </PageWrapper>
-            </ProtectedRoute>
-          }
-        />
+    <ErrorBoundary>
+      <NavigationLoader />
+      <Routes>
+      {/* Public routes - redirect to home if already logged in */}
+      <Route
+        path="/login"
+        element={
+          isAuthenticated ? <Navigate to="/" replace /> : <LoginPage />
+        }
+      />
+      <Route
+        path="/register"
+        element={
+          isAuthenticated ? <Navigate to="/" replace /> : <RegisterPage />
+        }
+      />
 
-        <Route
-          path="/*"
-          element={
-            <AppLayout>
-              <Routes>
-                <Route path="/" element={<PageWrapper><ThreadListPage /></PageWrapper>} />
-                <Route path="/threads/:id" element={<PageWrapper><ThreadDetailPage /></PageWrapper>} />
-                <Route path="/chat" element={<PageWrapper><ChatPage /></PageWrapper>} />
-                <Route path="/chat/:id" element={<PageWrapper><ChatPage /></PageWrapper>} />
-              </Routes>
-            </AppLayout>
-          }
-        />
-      </Routes>
-    </AnimatePresence>
+      {/* Protected routes - require authentication */}
+      <Route
+        path="/"
+        element={
+          <ProtectedRoute isAuthenticated={isAuthenticated}>
+            <AppLayout />
+          </ProtectedRoute>
+        }
+      >
+        <Route index element={<ThreadListPage />} />
+        <Route path="threads/:id" element={<ThreadDetailPage />} />
+        <Route path="chat" element={<ChatPage />} />
+        <Route path="chat/:id" element={<ChatPage />} />
+      </Route>
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
+    </ErrorBoundary>
   )
 }
 

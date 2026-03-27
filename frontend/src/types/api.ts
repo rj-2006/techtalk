@@ -3,8 +3,8 @@ export interface User {
   username: string
   email: string
   avatar?: string
-  created_at: string
-  updated_at: string
+  created_at?: string
+  updated_at?: string
 }
 
 export interface AuthTokens {
@@ -71,6 +71,7 @@ export interface Chatroom {
   description?: string
   created_by: number
   created_at: string
+  active_users?: number
 }
 
 export interface ChatMessage {
