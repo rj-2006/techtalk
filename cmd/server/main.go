@@ -34,6 +34,7 @@ func main() {
 		os.Getenv("DB_PASSWORD"),
 		os.Getenv("DB_NAME"),
 		os.Getenv("DB_PORT"),
+		os.Getenv("DB_SSL_MODE"),
 	); err != nil {
 		log.Fatal("Database connection failed:", err)
 	}
